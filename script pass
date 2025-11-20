@@ -1,103 +1,138 @@
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
 
--- 1. UI SETUP
+-- 1. CREATE UI
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UniversalClaimer"
+ScreenGui.Name = "PassRecorder"
 if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 500, 0, 350)
-Frame.Position = UDim2.new(0.5, -250, 0.5, -175)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+Frame.Size = UDim2.new(0, 450, 0, 250)
+Frame.Position = UDim2.new(0.5, -225, 0.5, -125)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 Frame.BorderSizePixel = 2
+Frame.BorderColor3 = Color3.fromRGB(255, 170, 0)
 Frame.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Text = "REMOTE FINDER & CLAIMER"
-Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.Text = "PASS RECORDER"
+Title.Font = Enum.Font.GothamBold
 Title.TextSize = 24
-Title.Font = Enum.Font.SourceSansBold
+Title.TextColor3 = Color3.fromRGB(255, 170, 0)
 Title.BackgroundTransparency = 1
 Title.Parent = Frame
 
-local LogBox = Instance.new("ScrollingFrame")
-LogBox.Size = UDim2.new(1, -20, 0, 200)
-LogBox.Position = UDim2.new(0, 10, 0, 50)
-LogBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-LogBox.Parent = Frame
-LogBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 60)
+Status.Position = UDim2.new(0, 10, 0, 50)
+Status.Text = "WAITING...\nPlease open Pass UI and CLICK a Level!"
+Status.TextColor3 = Color3.fromRGB(200, 200, 200)
+Status.TextSize = 18
+Status.BackgroundTransparency = 0.8
+Status.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Status.Parent = Frame
 
-local UIListLayout = Instance.new("UIListLayout")
-UIListLayout.Parent = LogBox
-
-local function Log(text, color)
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(1, 0, 0, 20)
-    lbl.Text = text
-    lbl.TextColor3 = color or Color3.new(1,1,1)
-    lbl.BackgroundTransparency = 1
-    lbl.Parent = LogBox
-end
-
--- 2. FIND ALL REMOTES
-local allRemotes = {}
-Log("Scanning...", Color3.new(1,1,0))
-
-for _, v in pairs(ReplicatedStorage:GetDescendants()) do
-    if v:IsA("RemoteEvent") then
-        table.insert(allRemotes, v)
-        Log("FOUND: " .. v.Name, Color3.new(0,1,0))
-    end
-end
-
-Log("Total Remotes Found: " .. #allRemotes, Color3.new(1,1,1))
-
--- 3. THE "FIRE ALL" BUTTON
-local FireBtn = Instance.new("TextButton")
-FireBtn.Size = UDim2.new(0, 200, 0, 50)
-FireBtn.Position = UDim2.new(0.5, -100, 1, -60)
-FireBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-FireBtn.Text = "FORCE CLAIM (TRY ALL)"
-FireBtn.TextColor3 = Color3.new(1,1,1)
-FireBtn.TextSize = 20
-FireBtn.Font = Enum.Font.SourceSansBold
-FireBtn.Parent = Frame
-
-FireBtn.MouseButton1Click:Connect(function()
-    FireBtn.Text = "FIRING..."
-    FireBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
-    
-    Log("------------------", Color3.new(1,1,1))
-    Log("FIRING EVERY REMOTE...", Color3.new(1,0.5,0))
-    
-    for _, remote in pairs(allRemotes) do
-        task.spawn(function()
-            -- Try to claim 100 levels on THIS remote
-            -- We try many different "arguments" because we don't know which one works
-            for i = 1, 100 do
-                remote:FireServer("Claim", i)
-                remote:FireServer("ClaimReward", i)
-                remote:FireServer("Redeem", i)
-                remote:FireServer(i)
-            end
-            Log("Fired: " .. remote.Name, Color3.new(0.5, 0.5, 1))
-        end)
-        task.wait(0.05) -- Slight delay to prevent crash
-    end
-    
-    Log("DONE! Check Inventory.", Color3.new(0,1,0))
-    FireBtn.Text = "DONE"
-end)
+local ActionButton = Instance.new("TextButton")
+ActionButton.Size = UDim2.new(0, 300, 0, 50)
+ActionButton.Position = UDim2.new(0.5, -150, 0, 180)
+ActionButton.Text = "WAITING FOR SIGNAL..."
+ActionButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+ActionButton.TextColor3 = Color3.fromRGB(100, 100, 100)
+ActionButton.Font = Enum.Font.GothamBold
+ActionButton.TextSize = 18
+ActionButton.AutoButtonColor = false
+ActionButton.Parent = Frame
 
 -- Close Button
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0,30,0,30)
 Close.Position = UDim2.new(1,-30,0,0)
 Close.Text = "X"
-Close.BackgroundColor3 = Color3.new(1,0,0)
+Close.BackgroundColor3 = Color3.fromRGB(200,0,0)
 Close.Parent = Frame
 Close.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+
+-- VARIABLES TO STORE CAPTURED DATA
+local CapturedRemote = nil
+local CapturedArgs = nil
+local CapturedMethod = nil -- "FireServer" or "InvokeServer"
+
+-- 2. HOOKING FUNCTION (THE MAGIC)
+-- This listens to signals sent from your game to the server
+local mt = getrawmetatable(game)
+local oldNamecall = mt.__namecall
+setreadonly(mt, false)
+
+mt.__namecall = newcclosure(function(self, ...)
+    local method = getnamecallmethod()
+    local args = {...}
+
+    -- Only look for Remotes, and ignore Chat messages
+    if (method == "FireServer" or method == "InvokeServer") and self.Name ~= "SayMessageRequest" and self.Name ~= "DefaultChatSystemChatEvents" then
+        
+        -- We only want to catch it if we haven't found one yet
+        if CapturedRemote == nil then
+            -- CHECK IF ARGS LOOK LIKE PASS DATA (Usually contains a number)
+            local hasNumber = false
+            for _, v in pairs(args) do
+                if type(v) == "number" then hasNumber = true end
+            end
+
+            if hasNumber then
+                CapturedRemote = self
+                CapturedArgs = args
+                CapturedMethod = method
+                
+                -- UPDATE UI
+                Status.Text = "CAPTURED: " .. self.Name .. "\nArgs: Check Console"
+                Status.TextColor3 = Color3.fromRGB(0, 255, 0)
+                Frame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+                
+                ActionButton.Text = "AUTO CLAIM 1-100 (CLICK ME)"
+                ActionButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+                ActionButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+                ActionButton.AutoButtonColor = true
+            end
+        end
+    end
+
+    return oldNamecall(self, ...)
+end)
+
+-- 3. REPLAY FUNCTION
+ActionButton.MouseButton1Click:Connect(function()
+    if not CapturedRemote then return end
+    
+    ActionButton.Text = "CLAIMING..."
+    ActionButton.BackgroundColor3 = Color3.fromRGB(200, 200, 0)
+    
+    -- Loop 100 times
+    for i = 1, 100 do
+        -- We need to find which argument was the "Level Number" and replace it with 'i'
+        local newArgs = {}
+        for index, val in pairs(CapturedArgs) do
+            if type(val) == "number" then
+                -- If the original click was a number (like level 1), we replace it with the loop number
+                newArgs[index] = i
+            else
+                newArgs[index] = val
+            end
+        end
+        
+        -- Fire the remote again with the new level number
+        task.spawn(function()
+            if CapturedMethod == "FireServer" then
+                CapturedRemote:FireServer(unpack(newArgs))
+            else
+                CapturedRemote:InvokeServer(unpack(newArgs))
+            end
+        end)
+        
+        if i % 10 == 0 then task.wait(0.05) end -- Speed limit to prevent crash
+    end
+    
+    ActionButton.Text = "DONE! CHECK PASS"
+    ActionButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+end)
