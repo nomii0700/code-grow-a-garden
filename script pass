@@ -1,0 +1,31 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Notify function to show you it's working
+local function Notify(title, text)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = title;
+        Text = text;
+        Duration = 5;
+    })
+end
+
+Notify("Auto Pass", "Starting to claim levels...")
+
+-- Attempt to find the specific remote for Grow a Garden
+local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
+local SeasonPassRemote = Remotes and Remotes:FindFirstChild("SeasonPass")
+
+if SeasonPassRemote then
+    -- Loop through levels 1 to 100 (covers most passes)
+    for level = 1, 100 do
+        task.spawn(function()
+            -- This fires the event to the server to claim the reward
+            SeasonPassRemote:FireServer("Claim", level)
+        end)
+    end
+    Notify("Auto Pass", "Attempted to claim 100 levels!")
+else
+    Notify("Error", "Could not find SeasonPass remote. Game might have updated.")
+end
