@@ -1,31 +1,107 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+-- AUTO PASS BRUTE FORCE - DIRECT GUI VERSION
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
 
--- Notify function to show you it's working
-local function Notify(title, text)
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = title;
-        Text = text;
-        Duration = 5;
-    })
+-- 1. CREATE A SCREEN GUI (So you can see what happens without Console)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AutoPassLog"
+-- Try to put it in CoreGui (Secure), otherwise PlayerGui
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 400, 0, 300)
+Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.BorderSizePixel = 2
+Frame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+Frame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundTransparency = 1
+Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+Title.Text = "AUTO PASS - SCANNER"
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 20
+Title.Parent = Frame
+
+local LogBox = Instance.new("ScrollingFrame")
+LogBox.Size = UDim2.new(1, -20, 1, -50)
+LogBox.Position = UDim2.new(0, 10, 0, 40)
+LogBox.BackgroundTransparency = 0.8
+LogBox.Parent = Frame
+LogBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+local Layout = Instance.new("UIListLayout")
+Layout.Parent = LogBox
+
+-- Function to write text to your screen
+local function Log(text, color)
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 0, 25)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
+    label.Text = text
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = LogBox
+    LogBox.CanvasPosition = Vector2.new(0, 9999) -- Auto scroll
 end
 
-Notify("Auto Pass", "Starting to claim levels...")
+Log("Script Started...", Color3.fromRGB(255, 255, 0))
+Log("Scanning ReplicatedStorage...", Color3.fromRGB(200, 200, 200))
 
--- Attempt to find the specific remote for Grow a Garden
-local Remotes = ReplicatedStorage:FindFirstChild("Remotes")
-local SeasonPassRemote = Remotes and Remotes:FindFirstChild("SeasonPass")
+-- 2. THE SCANNER LOGIC
+local foundAny = false
 
-if SeasonPassRemote then
-    -- Loop through levels 1 to 100 (covers most passes)
-    for level = 1, 100 do
-        task.spawn(function()
-            -- This fires the event to the server to claim the reward
-            SeasonPassRemote:FireServer("Claim", level)
-        end)
+-- We look through EVERY file in ReplicatedStorage
+for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
+    if obj:IsA("RemoteEvent") then
+        local name = obj.Name:lower()
+        
+        -- Check if the name sounds like a Season Pass
+        if name:find("season") or name:find("pass") or name:find("reward") then
+            foundAny = true
+            Log("FOUND REMOTE: " .. obj.Name, Color3.fromRGB(0, 255, 0))
+            Log("Path: " .. obj:GetFullName(), Color3.fromRGB(150, 150, 150))
+            Log("Attempting to claim 100 levels...", Color3.fromRGB(255, 170, 0))
+            
+            -- 3. THE BRUTE FORCE CLAIMER
+            task.spawn(function()
+                for i = 1, 100 do
+                    -- Try Method 1: "Claim", LevelNumber
+                    obj:FireServer("Claim", i)
+                    -- Try Method 2: "ClaimReward", LevelNumber
+                    obj:FireServer("ClaimReward", i)
+                    -- Try Method 3: Just the LevelNumber
+                    obj:FireServer(i)
+                    
+                    if i % 10 == 0 then
+                        task.wait(0.1) -- Small wait to not crash
+                    end
+                end
+                Log("Finished firing for " .. obj.Name, Color3.fromRGB(0, 255, 0))
+            end)
+        end
     end
-    Notify("Auto Pass", "Attempted to claim 100 levels!")
-else
-    Notify("Error", "Could not find SeasonPass remote. Game might have updated.")
 end
+
+if not foundAny then
+    Log("ERROR: No remote found!", Color3.fromRGB(255, 0, 0))
+    Log("Game might use a very strange name.", Color3.fromRGB(255, 0, 0))
+else
+    Log("--------------------------------", Color3.fromRGB(255, 255, 255))
+    Log("Scan Complete. Check your inventory.", Color3.fromRGB(0, 255, 0))
+end
+
+-- Add a close button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 20, 0, 20)
+CloseBtn.Position = UDim2.new(1, -25, 0, 5)
+CloseBtn.Text = "X"
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseBtn.Parent = Frame
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
