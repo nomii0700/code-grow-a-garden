@@ -1,107 +1,103 @@
--- AUTO PASS BRUTE FORCE - DIRECT GUI VERSION
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 
--- 1. CREATE A SCREEN GUI (So you can see what happens without Console)
+-- 1. UI SETUP
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AutoPassLog"
--- Try to put it in CoreGui (Secure), otherwise PlayerGui
-pcall(function() ScreenGui.Parent = CoreGui end)
-if not ScreenGui.Parent then ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") end
+ScreenGui.Name = "UniversalClaimer"
+if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 400, 0, 300)
-Frame.Position = UDim2.new(0.5, -200, 0.5, -150)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Size = UDim2.new(0, 500, 0, 350)
+Frame.Position = UDim2.new(0.5, -250, 0.5, -175)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Frame.BorderColor3 = Color3.fromRGB(255, 0, 0)
 Frame.BorderSizePixel = 2
-Frame.BorderColor3 = Color3.fromRGB(0, 255, 0)
 Frame.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundTransparency = 1
-Title.TextColor3 = Color3.fromRGB(0, 255, 0)
-Title.Text = "AUTO PASS - SCANNER"
+Title.Size = UDim2.new(1, 0, 0, 40)
+Title.Text = "REMOTE FINDER & CLAIMER"
+Title.TextColor3 = Color3.fromRGB(255, 0, 0)
+Title.TextSize = 24
 Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 20
+Title.BackgroundTransparency = 1
 Title.Parent = Frame
 
 local LogBox = Instance.new("ScrollingFrame")
-LogBox.Size = UDim2.new(1, -20, 1, -50)
-LogBox.Position = UDim2.new(0, 10, 0, 40)
-LogBox.BackgroundTransparency = 0.8
+LogBox.Size = UDim2.new(1, -20, 0, 200)
+LogBox.Position = UDim2.new(0, 10, 0, 50)
+LogBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 LogBox.Parent = Frame
 LogBox.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-local Layout = Instance.new("UIListLayout")
-Layout.Parent = LogBox
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = LogBox
 
--- Function to write text to your screen
 local function Log(text, color)
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 0, 25)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = color or Color3.fromRGB(255, 255, 255)
-    label.Text = text
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = LogBox
-    LogBox.CanvasPosition = Vector2.new(0, 9999) -- Auto scroll
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 20)
+    lbl.Text = text
+    lbl.TextColor3 = color or Color3.new(1,1,1)
+    lbl.BackgroundTransparency = 1
+    lbl.Parent = LogBox
 end
 
-Log("Script Started...", Color3.fromRGB(255, 255, 0))
-Log("Scanning ReplicatedStorage...", Color3.fromRGB(200, 200, 200))
+-- 2. FIND ALL REMOTES
+local allRemotes = {}
+Log("Scanning...", Color3.new(1,1,0))
 
--- 2. THE SCANNER LOGIC
-local foundAny = false
-
--- We look through EVERY file in ReplicatedStorage
-for _, obj in pairs(ReplicatedStorage:GetDescendants()) do
-    if obj:IsA("RemoteEvent") then
-        local name = obj.Name:lower()
-        
-        -- Check if the name sounds like a Season Pass
-        if name:find("season") or name:find("pass") or name:find("reward") then
-            foundAny = true
-            Log("FOUND REMOTE: " .. obj.Name, Color3.fromRGB(0, 255, 0))
-            Log("Path: " .. obj:GetFullName(), Color3.fromRGB(150, 150, 150))
-            Log("Attempting to claim 100 levels...", Color3.fromRGB(255, 170, 0))
-            
-            -- 3. THE BRUTE FORCE CLAIMER
-            task.spawn(function()
-                for i = 1, 100 do
-                    -- Try Method 1: "Claim", LevelNumber
-                    obj:FireServer("Claim", i)
-                    -- Try Method 2: "ClaimReward", LevelNumber
-                    obj:FireServer("ClaimReward", i)
-                    -- Try Method 3: Just the LevelNumber
-                    obj:FireServer(i)
-                    
-                    if i % 10 == 0 then
-                        task.wait(0.1) -- Small wait to not crash
-                    end
-                end
-                Log("Finished firing for " .. obj.Name, Color3.fromRGB(0, 255, 0))
-            end)
-        end
+for _, v in pairs(ReplicatedStorage:GetDescendants()) do
+    if v:IsA("RemoteEvent") then
+        table.insert(allRemotes, v)
+        Log("FOUND: " .. v.Name, Color3.new(0,1,0))
     end
 end
 
-if not foundAny then
-    Log("ERROR: No remote found!", Color3.fromRGB(255, 0, 0))
-    Log("Game might use a very strange name.", Color3.fromRGB(255, 0, 0))
-else
-    Log("--------------------------------", Color3.fromRGB(255, 255, 255))
-    Log("Scan Complete. Check your inventory.", Color3.fromRGB(0, 255, 0))
-end
+Log("Total Remotes Found: " .. #allRemotes, Color3.new(1,1,1))
 
--- Add a close button
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 20, 0, 20)
-CloseBtn.Position = UDim2.new(1, -25, 0, 5)
-CloseBtn.Text = "X"
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-CloseBtn.Parent = Frame
-CloseBtn.MouseButton1Click:Connect(function()
-    ScreenGui:Destroy()
+-- 3. THE "FIRE ALL" BUTTON
+local FireBtn = Instance.new("TextButton")
+FireBtn.Size = UDim2.new(0, 200, 0, 50)
+FireBtn.Position = UDim2.new(0.5, -100, 1, -60)
+FireBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+FireBtn.Text = "FORCE CLAIM (TRY ALL)"
+FireBtn.TextColor3 = Color3.new(1,1,1)
+FireBtn.TextSize = 20
+FireBtn.Font = Enum.Font.SourceSansBold
+FireBtn.Parent = Frame
+
+FireBtn.MouseButton1Click:Connect(function()
+    FireBtn.Text = "FIRING..."
+    FireBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    
+    Log("------------------", Color3.new(1,1,1))
+    Log("FIRING EVERY REMOTE...", Color3.new(1,0.5,0))
+    
+    for _, remote in pairs(allRemotes) do
+        task.spawn(function()
+            -- Try to claim 100 levels on THIS remote
+            -- We try many different "arguments" because we don't know which one works
+            for i = 1, 100 do
+                remote:FireServer("Claim", i)
+                remote:FireServer("ClaimReward", i)
+                remote:FireServer("Redeem", i)
+                remote:FireServer(i)
+            end
+            Log("Fired: " .. remote.Name, Color3.new(0.5, 0.5, 1))
+        end)
+        task.wait(0.05) -- Slight delay to prevent crash
+    end
+    
+    Log("DONE! Check Inventory.", Color3.new(0,1,0))
+    FireBtn.Text = "DONE"
 end)
+
+-- Close Button
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0,30,0,30)
+Close.Position = UDim2.new(1,-30,0,0)
+Close.Text = "X"
+Close.BackgroundColor3 = Color3.new(1,0,0)
+Close.Parent = Frame
+Close.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
